@@ -5,7 +5,14 @@ local utils = require'nvim-treesitter.ts_utils'
 local M = {}
 
 local function get_node_at_line(root, lnum)
+  local children = {}
   for node in root:iter_children() do
+    children[#children + 1] = node
+  end
+
+  -- iterater children in reverse order
+  for i = #children, 1, -1 do
+    local node = children[i]
     local srow, _, erow = node:range()
     if srow == lnum then return node end
 
