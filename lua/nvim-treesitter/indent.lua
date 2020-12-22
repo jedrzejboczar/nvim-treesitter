@@ -47,11 +47,22 @@ function M.get_indent(lnum)
   local parser = parsers.get_parser()
   if not parser or not lnum then return -1 end
 
-  local node = get_node_at_line(parser:parse()[1]:root(), lnum-1)
   local indent_queries = get_indents(vim.api.nvim_get_current_buf())
   local indents = indent_queries.indents
   local branches = indent_queries.branches
   if not indents then return 0 end
+
+  local root = parser:parse()[1]:root()
+  local node = get_node_at_line(root, lnum-1)
+
+  -- use indentation from last block if it ends before current line
+  local prevnonblank = vim.fn.prevnonblank(lnum)
+  if prevnonblank ~= lnum then
+    local prev_node = get_node_at_line(root, prevnonblank - 1)
+    if (prev_node and prev_node:end_()) < lnum-1 then
+      node = prev_node
+    end
+  end
 
   while node and branches[tostring(node)] do
     node = node:parent()
