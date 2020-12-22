@@ -57,12 +57,15 @@ function M.get_indent(lnum)
     node = node:parent()
   end
 
+  local prev_row
   local ind_size = vim.bo.softtabstop < 0 and vim.bo.shiftwidth or vim.bo.tabstop
   local ind = 0
   while node do
     node = node:parent()
-    if indents[tostring(node)] then
+    local row = node and node:start() or prev_row
+    if indents[tostring(node)] and row ~= prev_row then
       ind = ind + ind_size
+      prev_row = row
     end
   end
 
