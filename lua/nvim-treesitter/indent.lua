@@ -4,23 +4,24 @@ local utils = require'nvim-treesitter.ts_utils'
 
 local M = {}
 
-local function get_node_at_line(root, lnum)
-  local children = {}
-  for node in root:iter_children() do
-    children[#children + 1] = node
-  end
+local function get_nodes_at_line(root, lnum, nodes)
+  nodes = nodes or {}
 
-  -- iterater children in reverse order
-  for i = #children, 1, -1 do
-    local node = children[i]
+  for node in root:iter_children() do
     local srow, _, erow = node:range()
-    if srow == lnum then return node end
+    if srow == lnum then
+      nodes[#nodes + 1] = node
+    end
 
     if node:child_count() > 0 and srow < lnum and lnum <= erow then
-      return get_node_at_line(node, lnum)
+      get_nodes_at_line(node, lnum, nodes)
     end
   end
 
+  return nodes
+end
+
+local function get_wrapper_at_line(root, lnum)
   local wrapper = root:descendant_for_range(lnum, 0, lnum, -1)
   local child = wrapper:child(0)
   return child or wrapper
@@ -53,21 +54,34 @@ function M.get_indent(lnum)
   if not indents then return 0 end
 
   local root = parser:parse()[1]:root()
-  local node = get_node_at_line(root, lnum-1)
+  local nodes = get_nodes_at_line(root, lnum-1)
+
+  -- get a wrapper if there were no nodes at line
+  if #nodes == 0 then
+    nodes = {get_wrapper_at_line(root, lnum-1)}
+  end
 
   -- use indentation from last block if it ends before current line
   local prevnonblank = vim.fn.prevnonblank(lnum)
   if prevnonblank ~= lnum then
-    local prev_node = get_node_at_line(root, prevnonblank - 1)
+    local prev_nodes = get_nodes_at_line(root, prevnonblank - 1)
+    local prev_node = prev_nodes[1]
     if (prev_node and prev_node:end_()) < lnum-1 then
-      node = prev_node
+      nodes = prev_nodes
     end
   end
 
+  -- jump out of branches from left to right
+  local node = table.remove(nodes, 1)
   while node and branches[tostring(node)] do
-    node = node:parent()
+    if #nodes > 0 then
+      node = table.remove(nodes, 1)
+    else
+      node = node:parent()
+    end
   end
 
+  -- move up to calculate identation
   local prev_row
   local ind_size = vim.bo.softtabstop < 0 and vim.bo.shiftwidth or vim.bo.tabstop
   local ind = 0
