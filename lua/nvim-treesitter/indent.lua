@@ -60,10 +60,25 @@ function M.get_indent(lnum)
   -- and if the node is an indent node, we should set the indent level as the indent_size
   -- and we set the node as the first child of this wrapper node or the wrapper itself
   if not node then
-    local wrapper = root:descendant_for_range(lnum, 0, lnum, -1)
-    node = wrapper:child(0) or wrapper
-    if indents[node_fmt(wrapper)] ~= nil and wrapper ~= root then
-      indent = indent_size
+    -- use indentation from last block if it ends before current line - allows
+    -- to get correct indent for languages like Python where blocks don't end with @branch
+    local prevnonblank = vim.fn.prevnonblank(lnum)
+    if prevnonblank ~= lnum then
+      local prev_node = get_node_at_line(root, prevnonblank - 1)
+      print('prev_node', tostring(prev_node), prev_node:end_(), lnum-1)
+      if prev_node and (prev_node:end_() < lnum-1) then
+        node = prev_node
+      end
+    end
+
+    if not node then
+      local wrapper = root:descendant_for_range(lnum, 0, lnum, -1)
+      node = wrapper:child(0) or wrapper
+      print('wrapper', tostring(node))
+      if indents[node_fmt(wrapper)] ~= nil and wrapper ~= root then
+        print('wrapper indent', tostring(node))
+        indent = indent_size
+      end
     end
   end
 
