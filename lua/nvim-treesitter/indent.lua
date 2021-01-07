@@ -21,21 +21,24 @@ local function node_fmt(node)
   return tostring(node)
 end
 
-local get_indents = utils.memoize_by_buf_tick(function(bufnr)
+local get_queries = utils.memoize_by_buf_tick(function(bufnr)
   local indents = queries.get_capture_matches(bufnr, '@indent.node', 'indents') or {}
   local branches = queries.get_capture_matches(bufnr, '@branch.node', 'indents') or {}
+  local ignores = queries.get_capture_matches(bufnr, '@ignore.node', 'indents') or {}
 
-  local indents_map = {}
-  for _, node in ipairs(indents) do
-    indents_map[tostring(node)] = true
+  local get_map = function(matches)
+    local map = {}
+    for _, node in ipairs(matches) do
+      map[tostring(node)] = true
+    end
+    return map
   end
 
-  local branches_map = {}
-  for _, node in ipairs(branches) do
-    branches_map[tostring(node)] = true
-  end
-
-  return { indents = indents_map, branches = branches_map }
+  return {
+    indents = get_map(indents),
+    branches = get_map(branches),
+    ignores = get_map(ignores),
+  }
 end)
 
 local function get_indent_size()
@@ -46,9 +49,7 @@ function M.get_indent(lnum)
   local parser = parsers.get_parser()
   if not parser or not lnum then return -1 end
 
-  local indent_queries = get_indents(vim.api.nvim_get_current_buf())
-  local indents = indent_queries.indents
-  local branches = indent_queries.branches
+  local q = get_queries(vim.api.nvim_get_current_buf())
   local root = parser:parse()[1]:root()
   local node = get_node_at_line(root, lnum-1)
 
@@ -75,14 +76,20 @@ function M.get_indent(lnum)
       local wrapper = root:descendant_for_range(lnum-1, 0, lnum-1, -1)
       node = wrapper:child(0) or wrapper
       print('wrapper', tostring(node))
-      if indents[node_fmt(wrapper)] ~= nil and wrapper ~= root then
+      if q.indents[node_fmt(wrapper)] ~= nil and wrapper ~= root then
         print('wrapper indent', tostring(node))
         indent = indent_size
       end
     end
   end
 
-  while node and branches[node_fmt(node)] do
+  -- TODO: C/C++ multi-line comments?
+  -- if last line is " */" it will not use comment but upper scope (e.g. namespace)?
+  if q.ignores[node_fmt(node)] then
+    return -1
+  end
+
+  while node and q.branches[node_fmt(node)] do
     node = node:parent()
   end
 
@@ -91,7 +98,7 @@ function M.get_indent(lnum)
   while node do
     node = node:parent()
     local row = node and node:start() or prev_row
-    if indents[node_fmt(node)] and prev_row ~= row then
+    if q.indents[node_fmt(node)] and prev_row ~= row then
       indent = indent + indent_size
       prev_row = row
     end
