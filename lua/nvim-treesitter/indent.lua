@@ -72,7 +72,7 @@ function M.get_indent(lnum)
     end
 
     if not node then
-      local wrapper = root:descendant_for_range(lnum, 0, lnum, -1)
+      local wrapper = root:descendant_for_range(lnum-1, 0, lnum-1, -1)
       node = wrapper:child(0) or wrapper
       print('wrapper', tostring(node))
       if indents[node_fmt(wrapper)] ~= nil and wrapper ~= root then
