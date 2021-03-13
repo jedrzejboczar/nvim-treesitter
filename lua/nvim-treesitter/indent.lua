@@ -5,16 +5,32 @@ local utils = require'nvim-treesitter.ts_utils'
 local M = {}
 
 -- TODO(kiyan): move this in tsutils and document it
-local function get_node_at_line(root, lnum)
+local function get_first_node_at_line(root, lnum)
   for node in root:iter_children() do
     local srow, _, erow = node:range()
     if srow == lnum then return node end
 
     if node:child_count() > 0 and srow < lnum and lnum <= erow then
-      return get_node_at_line(node, lnum)
+      return get_first_node_at_line(node, lnum)
     end
   end
 end
+
+local function get_last_node_at_line(root, lnum)
+  local children = {}
+  for node in root:iter_children() do
+    table.insert(children, 1, node)
+  end
+  for _, node in ipairs(children) do
+    local srow, _, erow = node:range()
+    if node:child_count() > 0 and srow <= lnum and lnum <= erow then
+      return get_last_node_at_line(node, lnum)
+    end
+
+    if srow == lnum then return node end
+  end
+end
+
 
 local function node_fmt(node)
   if not node then return nil end
@@ -49,7 +65,7 @@ function M.get_indent(lnum)
 
   local q = get_indents(vim.api.nvim_get_current_buf())
   local root = parser:parse()[1]:root()
-  local node = get_node_at_line(root, lnum-1)
+  local node = get_first_node_at_line(root, lnum-1)
 
   local indent = 0
   local indent_size = get_indent_size()
@@ -60,11 +76,11 @@ function M.get_indent(lnum)
   if not node then
     local prevnonblank = vim.fn.prevnonblank(lnum)
     if prevnonblank ~= lnum then
-      local prev_node = get_node_at_line(root, prevnonblank-1)
+      local prev_node = get_last_node_at_line(root, prevnonblank-1)
       -- get previous node in any case to avoid erroring
       while not prev_node and prevnonblank-1 > 0 do
         prevnonblank = vim.fn.prevnonblank(prevnonblank-1)
-        prev_node = get_node_at_line(root, prevnonblank-1)
+        prev_node = get_last_node_at_line(root, prevnonblank-1)
       end
 
       -- nodes can be marked @return to prevent using them
