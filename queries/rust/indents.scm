@@ -16,6 +16,9 @@
   (block)
   (where_clause)
   (use_list)
+  (macro_definition)
+  (macro_rule)
+  (token_tree)
 ] @indent
 
 [

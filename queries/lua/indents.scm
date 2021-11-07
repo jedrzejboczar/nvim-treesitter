@@ -6,6 +6,8 @@
   (local_function)
   (function)
   (if_statement)
+  (elseif)
+  (else)
   (for_statement)
   (for_in_statement)
   (repeat_statement)
