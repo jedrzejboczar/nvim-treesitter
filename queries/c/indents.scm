@@ -8,6 +8,11 @@
   (enumerator_list)
   (struct_specifier)
   (compound_literal_expression)
+  ; dev
+  (parameter_list)
+  (if_statement)
+  (while_statement)
+  (for_statement)
 ] @indent
 
 
