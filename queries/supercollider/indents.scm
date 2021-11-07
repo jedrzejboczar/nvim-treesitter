@@ -7,10 +7,7 @@
 
 [
   (parameter_call_list (argument_calls))
-  "("
   ")"
-  "{"
   "}"
-  "["
   "]"
 ] @branch

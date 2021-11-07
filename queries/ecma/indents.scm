@@ -18,11 +18,8 @@
 
 [
   (arguments (object))
-  "("
   ")"
-  "{"
   "}"
-  "["
   "]"
 ] @branch
 

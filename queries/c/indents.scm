@@ -14,9 +14,11 @@
 [
   "#define"
   "#ifdef"
+  "#if"
   "#endif"
-  "{"
   "}"
+  ")"
+  "]"
 ] @branch
 
 [
