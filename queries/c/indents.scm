@@ -24,9 +24,12 @@
   "}"
   ")"
   "]"
+  (statement_identifier) ; goto labels
+  "else"
 ] @branch
 
 [
   (comment)
   (preproc_function_def)
+  (string_literal)
 ] @ignore

@@ -196,6 +196,7 @@ local function dev_indent(lnum)
 
   -- Not likely, but just in case...
   if not root then
+    print('no root')
     return 0
   end
 
@@ -203,6 +204,7 @@ local function dev_indent(lnum)
 
   -- lnum = vim.fn.prevnonblank(lnum)
   if lnum == 0 then  -- first line
+    print('lnum 0')
     return 0
   end
 
@@ -211,7 +213,10 @@ local function dev_indent(lnum)
   -- get wrapper for the first char of current line
   -- then get all its parents that are on the same line
   local wrapper = get_first_char_wrapper(buf, lnum, root)
-  if not wrapper then return 0 end
+  if not wrapper then
+    print('no wrapper')
+    return 0
+  end
 
   local curr_line_nodes = {}  -- nodes on lnum starting from wrapper
   local prev_line_nodes = {}  -- nodes on the line of first wrapper parent that is before lnum
@@ -238,11 +243,15 @@ local function dev_indent(lnum)
   local is_indent = tbl_any(prev_line_nodes, in_query(q.indents))
   -- branch  when any node on current line is a branch
   local is_branch = tbl_any(curr_line_nodes, in_query(q.branches))
+  -- ignore by checking nodes on previous line  (the ones that could cause indent)
+  local is_ignore = tbl_any(prev_line_nodes, in_query(q.ignores))
 
   local prev_indent = prev_lnum and vim.fn.indent(prev_lnum) or 0
   local indent
 
-  if is_branch then
+  if is_ignore then
+    indent = -1
+  elseif is_branch then
     indent = prev_indent
   elseif is_indent then
     indent = prev_indent + indent_size
@@ -260,8 +269,8 @@ local function dev_indent(lnum)
   print('prev:', fmt_nodes_path(prev_line_nodes))
   print('curr:', fmt_nodes_path(curr_line_nodes))
 
-  print(string.format('ln=%d prv=%d ind=%d isi=%s isb=%s w=%s',
-    lnum, prev_indent, indent, is_indent, is_branch, wrapper:type()
+  print(string.format('ln=%d prv=%d ind=%d isind=%s isbr=%s isign=%s w=%s',
+    lnum, prev_indent, indent, is_indent, is_branch, is_ignore, wrapper:type()
   ))
   return indent
 end
