@@ -27,4 +27,7 @@
   (elseif)
 ] @branch
 
-(comment) @ignore
+[
+  (comment)
+  (string)
+] @ignore
