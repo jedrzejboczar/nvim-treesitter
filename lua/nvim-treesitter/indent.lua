@@ -184,8 +184,15 @@ local function tbl_any(tbl, cond)
   return false
 end
 
+M.debug_print = vim.fn.eval('$INDENTS_DBG') == '1'
+local function dprint(...)
+  if M.debug_print then
+    print(...)
+  end
+end
+
 local function dev_indent(lnum)
-  print('dev_indent('..tostring(lnum)..')')
+  dprint('dev_indent('..tostring(lnum)..')')
   M.calls = M.calls + 1
   local parser = parsers.get_parser()
   if not parser or not lnum then
@@ -196,7 +203,7 @@ local function dev_indent(lnum)
 
   -- Not likely, but just in case...
   if not root then
-    print('no root')
+    dprint('no root')
     return -1
   end
 
@@ -204,7 +211,7 @@ local function dev_indent(lnum)
 
   -- lnum = vim.fn.prevnonblank(lnum)
   if lnum == 0 then  -- first line
-    print('lnum 0')
+    dprint('lnum 0')
     return 0
   end
 
@@ -214,7 +221,7 @@ local function dev_indent(lnum)
   -- then get all its parents that are on the same line
   local wrapper = get_first_char_wrapper(buf, lnum, root)
   if not wrapper then
-    print('no wrapper')
+    dprint('no wrapper')
     return 0
   end
 
@@ -266,17 +273,17 @@ local function dev_indent(lnum)
     return table.concat(vim.tbl_map(fmt_short, nodes), '>')
   end
 
-  print('prev:', fmt_nodes_path(prev_line_nodes))
-  print('curr:', fmt_nodes_path(curr_line_nodes))
+  dprint('prev:', fmt_nodes_path(prev_line_nodes))
+  dprint('curr:', fmt_nodes_path(curr_line_nodes))
 
-  print(string.format('ln=%d prv=%d ind=%d isind=%s isbr=%s isign=%s w=%s',
+  dprint(string.format('ln=%d prv=%d ind=%d isind=%s isbr=%s isign=%s w=%s',
     lnum, prev_indent, indent, is_indent, is_branch, is_ignore, wrapper:type()
   ))
   return indent
 end
 
 M.indent_dev = vim.fn.eval('$INDENTS_DEV') == '1'
-if M.indent_dev then print('WARNING:\nUsing dev indents implementation') end
+if M.indent_dev then dprint('WARNING:\nUsing dev indents implementation') end
 
 function M.get_indent(lnum)
   if M.indent_dev then
