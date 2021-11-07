@@ -139,7 +139,54 @@ local function get_first_char_col(buf, lnum)
   return char_index and char_index - 1, char_index and line:sub(char_index, char_index)
 end
 
+local function get_first_char_wrapper(buf, lnum, root)
+  local col = get_first_char_col(buf, lnum) or 0
+  local wrapper = root:descendant_for_range(lnum - 1, col, lnum - 1, col)
+  return wrapper
+end
+
+-- Example code:
+-- ```
+-- 1 fun_call(
+-- 2     arg
+-- 3 )
+-- 4 fun_call(
+-- 5     arg)
+-- ```
+--
+-- Cases:
+-- * on first line of something (1)
+-- * inside something (2)
+-- * on last, dedented line of something (3)
+-- * on last, not-dedented line of something (5)
+--
+-- Idea:
+-- Do the indenting based on the previous line. If previous line has a node
+-- that introduces indent, then we use indent(prevnonblank) + indent_shift, else
+-- we use indent(prevnonblank). To test for branches (dedents) we get the wrapper
+-- of first non-whitespace char in current line. If it is a dedent node then we use
+-- indent(prevnonblank) - indent_shift.
+
+local function get_node_and_parents_while(node, cond)
+  local parents = {}
+  while node and cond(node) do
+    table.insert(parents, node)
+    node = node:parent()
+  end
+  return parents
+end
+
+local function tbl_any(tbl, cond)
+  for _, elem in ipairs(tbl) do
+    if cond(elem) then
+      return true
+    end
+  end
+  return false
+end
+
 local function dev_indent(lnum)
+  print('dev_indent('..tostring(lnum)..')')
   local parser = parsers.get_parser()
   if not parser or not lnum then
     return -1
@@ -161,74 +208,123 @@ local function dev_indent(lnum)
 
   local indent_size = vim.fn.shiftwidth()
 
-  -- get the wrapper that does not start on our line (as then we don't indent yet)
-  -- local wrapper = root:descendant_for_range(lnum - 1, 0, lnum - 1, -1)
-  local wrapper = root:descendant_for_range(lnum - 1, 0, lnum - 1, 0)
-  local wrappers = {wrapper}
-  print('root', root:type())
-  print('lnum', lnum)
-  print('wrapper', wrapper:type())
-  while wrapper:start() == lnum - 1 do
-    if wrapper == root then
-      print('found root')
-      return 0
-    end
-    wrapper = wrapper:parent()
-    print('parent', wrapper:type())
-    table.insert(wrappers, wrapper)
+  local lnum_prev = lnum - 1
+  if lnum_prev == 0 then
+    return 0
   end
 
-  -- find wrapper of the first non-blank character on the line (to find branches)
-  local is_branch = false
-  local char_col = get_first_char_col(0, lnum)
-  if char_col then
-    local char_wrapper = root:descendant_for_range(lnum - 1, char_col, lnum - 1, char_col)
-    if q.branches[node_fmt(char_wrapper)] then
-      is_branch = true
-    end
+  -- local prevnonblank = vim.fn.prevnonblank(lnum - 1)
+  -- if prevnonblank == 0 then
+  --   return 0
+  -- end
+
+  -- wrapper for previous line
+  local prev_wrapper = get_first_char_wrapper(buf, lnum - 1, root)
+  local prev_nodes = get_node_and_parents_while(prev_wrapper, function(node)
+    return node:start() == prev_wrapper:start()
+  end)
+  -- wrapper for current line
+  local curr_wrapper = get_first_char_wrapper(buf, lnum, root)
+  local curr_nodes = get_node_and_parents_while(curr_wrapper, function(node)
+    return node:start() == curr_wrapper:start()
+  end)
+
+  local prev_indent = vim.fn.indent(prev_wrapper:start() + 1)
+  local indent
+
+  local is_indent = tbl_any(prev_nodes, function(node) return q.indents[node_fmt(node)] end)
+  local is_branch = tbl_any(curr_nodes, function(node) return q.branches[node_fmt(node)] end)
+  if is_branch then
+    indent = prev_indent - indent_size
+  elseif is_indent then
+    indent = prev_indent + indent_size
+  else
+    indent = -1
   end
 
-  local indent = vim.fn.indent(wrapper:start() + 1)
-  local orig = indent
-
-  -- TODO: replace branch nodes with a distinction for indent and indent_with_branch (with closing paren)
-  local is_indent = false
-  local wrapper_start = wrapper:start()
-  local node = wrapper
-  if not is_branch then
-    -- find if any node on that line is an indent node
-    while node and node:start() == wrapper_start do
-      if wrappers[#wrappers] == wrapper then
-        table.insert(wrappers, '|')
-      else
-        table.insert(wrappers, node)
-      end
-      if q.indents[node_fmt(node)] then
-        is_indent = true
-        break
-      end
-      node = node:parent()
-    end
+  local fmt_short = function(node)
+    return string.format('%s(%d)', node:type(), node:start())
+  end
+  local fmt_nodes_path = function(nodes)
+    return table.concat(vim.tbl_map(fmt_short, nodes), '>')
   end
 
-  if is_indent then
-    indent = indent + indent_size
-  end
+  print('prev:', fmt_nodes_path(prev_nodes))
+  print('curr:', fmt_nodes_path(curr_nodes))
 
-  local wrappers_str = table.concat(vim.tbl_map(function(node)
-      return type(node) == 'string' and node or node:type()
-  end, wrappers), '>')
-  print(string.format('%s i=%s, e=%s, b=%s: %d -> %d',
-    -- wrapper:type(),
-    wrappers_str,
-    q.indents[node_fmt(wrapper)],
-    on_end,
-    is_branch,
-    orig,
-    indent
+  print(string.format('ln=%d prv=%d ind=%d isi=%s isb=%s pw=%s cw=%s',
+    lnum, prev_indent, indent, is_indent, is_branch, prev_wrapper:type(), curr_wrapper:type()
   ))
-
   return indent
+
+  -- -- get the wrapper that does not start on our line (as then we don't indent yet)
+  -- -- local wrapper = root:descendant_for_range(lnum - 1, 0, lnum - 1, -1)
+  -- local wrapper = root:descendant_for_range(lnum - 1, 0, lnum - 1, 0)
+  -- local wrappers = {wrapper}
+  -- print('root', root:type())
+  -- print('lnum', lnum)
+  -- print('wrapper', wrapper:type())
+  -- while wrapper:start() == lnum - 1 do
+  --   if wrapper == root then
+  --     print('found root')
+  --     return 0
+  --   end
+  --   wrapper = wrapper:parent()
+  --   print('parent', wrapper:type())
+  --   table.insert(wrappers, wrapper)
+  -- end
+  --
+  -- -- find wrapper of the first non-blank character on the line (to find branches)
+  -- local is_branch = false
+  -- local char_col = get_first_char_col(0, lnum)
+  -- if char_col then
+  --   local char_wrapper = root:descendant_for_range(lnum - 1, char_col, lnum - 1, char_col)
+  --   if q.branches[node_fmt(char_wrapper)] then
+  --     is_branch = true
+  --   end
+  -- end
+  --
+  -- local indent = vim.fn.indent(wrapper:start() + 1)
+  -- local orig = indent
+  --
+  -- -- TODO: replace branch nodes with a distinction for indent and indent_with_branch (with closing paren)
+  -- local is_indent = false
+  -- local wrapper_start = wrapper:start()
+  -- local node = wrapper
+  -- if not is_branch then
+  --   -- find if any node on that line is an indent node
+  --   while node and node:start() == wrapper_start do
+  --     if wrappers[#wrappers] == wrapper then
+  --       table.insert(wrappers, '|')
+  --     else
+  --       table.insert(wrappers, node)
+  --     end
+  --     if q.indents[node_fmt(node)] then
+  --       is_indent = true
+  --       break
+  --     end
+  --     node = node:parent()
+  --   end
+  -- end
+  --
+  -- if is_indent then
+  --   indent = indent + indent_size
+  -- end
+  --
+  -- local wrappers_str = table.concat(vim.tbl_map(function(node)
+  --     return type(node) == 'string' and node or node:type()
+  -- end, wrappers), '>')
+  -- print(string.format('%s i=%s, e=%s, b=%s: %d -> %d',
+  --   -- wrapper:type(),
+  --   wrappers_str,
+  --   q.indents[node_fmt(wrapper)],
+  --   on_end,
+  --   is_branch,
+  --   orig,
+  --   indent
+  -- ))
+  --
+  -- return indent
 end
 
 M.indent_dev = vim.fn.eval('$INDENTS_DEV') == '1'
@@ -256,7 +352,8 @@ end
 
 function M.indent_debugger_open(for_win, for_buf)
   local name = string.format('Indents[%d]', for_win)
-  vim.cmd('new ' .. name)
+  local height = 12
+  vim.cmd(string.format('%d split new %s', height, name))
 
   -- configure scratch buffer
   vim.bo.buftype = 'nofile'
@@ -331,11 +428,6 @@ function M.indent_debugger_update(buf)
       n = n:parent()
     end
     table.insert(lines, '  all: ' .. fmt_nodes_path(all_parents))
-
-
-
-
-
   end
 
   fmt_node('wrapper col=0,0: ', root:descendant_for_range(lnum - 1, 0, lnum - 1, 0))
@@ -361,5 +453,7 @@ function M.indent_debugger(win)
     M.indent_debugger_open(win, buf)
   end
 end
+
+vim.cmd([[command! IndentDebug call luaeval('require("nvim-treesitter.indent").indent_debugger()') | TSPlaygroundToggle]])
 
 return M
