@@ -21,8 +21,11 @@
 [
   "end"
   "until"
+  "{"
   "}"
+  "("
   ")"
+  "then"
   (else)
   (elseif)
 ] @branch

@@ -4,5 +4,6 @@
 ] @indent
 
 [
+  "{"
   "}"
 ] @branch
