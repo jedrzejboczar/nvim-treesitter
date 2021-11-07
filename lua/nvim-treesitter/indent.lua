@@ -197,7 +197,7 @@ local function dev_indent(lnum)
   -- Not likely, but just in case...
   if not root then
     print('no root')
-    return 0
+    return -1
   end
 
   local q = get_indents(vim.api.nvim_get_current_buf(), root, lang_tree:lang())
