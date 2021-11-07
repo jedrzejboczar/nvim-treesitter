@@ -49,9 +49,13 @@ end, {
 })
 
 M.calls = 0
+M.full_calls = 0
+M.full_time = 0
 
 local function get_indent(lnum)
   M.calls = M.calls + 1
+  local starttime = vim.fn.reltime()
+
   local parser = parsers.get_parser()
   if not parser or not lnum then
     return -1
@@ -133,6 +137,9 @@ local function get_indent(lnum)
     first = false
   end
 
+  M.full_calls = M.full_calls + 1
+  M.full_time = M.full_time + vim.fn.reltimefloat(vim.fn.reltime(starttime))
+
   return indent
 end
 
@@ -194,6 +201,8 @@ end
 local function dev_indent(lnum)
   dprint('dev_indent('..tostring(lnum)..')')
   M.calls = M.calls + 1
+  local starttime = vim.fn.reltime()
+
   local parser = parsers.get_parser()
   if not parser or not lnum then
     return -1
@@ -279,6 +288,10 @@ local function dev_indent(lnum)
   dprint(string.format('ln=%d prv=%d ind=%d isind=%s isbr=%s isign=%s w=%s',
     lnum, prev_indent, indent, is_indent, is_branch, is_ignore, wrapper:type()
   ))
+
+  M.full_calls = M.full_calls + 1
+  M.full_time = M.full_time + vim.fn.reltimefloat(vim.fn.reltime(starttime))
+
   return indent
 end
 
@@ -414,5 +427,6 @@ end
 
 vim.cmd([[command! IndentDebug call luaeval('require("nvim-treesitter.indent").indent_debugger()') | TSPlaygroundToggle]])
 vim.cmd([[command! IndentCalls lua print(require("nvim-treesitter.indent").calls)]])
+vim.cmd([[command! IndentTimes lua print(require("nvim-treesitter.indent").full_time / require("nvim-treesitter.indent").full_calls * 1e6, 'us')]])
 
 return M
