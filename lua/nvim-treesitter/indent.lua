@@ -22,7 +22,7 @@ local function node_fmt(node)
   if not node then
     return nil
   end
-  return tostring(node)
+  return node:id()
 end
 
 local get_indents = tsutils.memoize_by_buf_tick(function(bufnr, root, lang)
@@ -30,7 +30,7 @@ local get_indents = tsutils.memoize_by_buf_tick(function(bufnr, root, lang)
     local matches = queries.get_capture_matches(bufnr, capture, "indents", root, lang) or {}
     local map = {}
     for _, node in ipairs(matches) do
-      map[tostring(node)] = true
+      map[node:id()] = node
     end
     return map
   end
