@@ -23,12 +23,12 @@
 
 [
   "where"
-  "("
   ")"
-  "["
   "]"
-  "{"
   "}"
+  ; use branch for all "{" as it seems that there are no nested initializers
+  ; in Rust that use it, but "(" and "[" are used for nested arrays/tuples
+  "{"
 ] @branch
 
 [

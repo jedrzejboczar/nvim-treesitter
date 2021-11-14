@@ -172,25 +172,6 @@ end
 --
 -- for C #defines with something like in preproc_func.c we could add @indent_always that would
 -- make #define always add an indent, so that #define + { will result in double indent
---
--- FIXME: currently languages like C/Rust have { defined as a branch, this allows to have
--- e.g. functions indented like so:
--- ```c
--- void foo(void)
--- {
---     bar();
--- }
--- ```
--- but this is currently a problem when we encounter something like
--- ```c
--- int x[2][2] = {
---     {0, 1},
---     {2, 3},
--- }
--- ```
--- because the { near "0" should not be treated as dedent.
--- We probably need to stop indexing with node:type() and use node:id() instead
--- (but watch out for the bug that was there a few months ago and probably still is)
 
 local function get_node_and_parents_while(node, cond)
   local parents = {}
