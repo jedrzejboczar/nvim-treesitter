@@ -204,7 +204,7 @@ end
 local function tbl_any(tbl, cond)
   for _, elem in ipairs(tbl) do
     if cond(elem) then
-      return true
+      return elem
     end
   end
   return false
