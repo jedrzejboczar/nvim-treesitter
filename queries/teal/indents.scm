@@ -15,4 +15,4 @@
   ")"
   "end"
   "then"
-] @branch
+] @dedent

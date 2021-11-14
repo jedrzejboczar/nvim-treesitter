@@ -35,7 +35,7 @@
   (else_clause)
   (except_clause)
   (finally_clause)
-] @branch
+] @dedent
 
 [
   (return_statement)

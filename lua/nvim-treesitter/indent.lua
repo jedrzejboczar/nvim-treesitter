@@ -36,10 +36,10 @@ local get_indents = tsutils.memoize_by_buf_tick(function(bufnr, root, lang)
   end
 
   return {
-    indents = get_map "@indent.node",
-    branches = get_map "@branch.node",
-    returns = get_map "@return.node",
-    ignores = get_map "@ignore.node",
+    indent = get_map "@indent.node",
+    dedent = get_map "@dedent.node",
+    return_ = get_map "@return.node",
+    ignore = get_map "@ignore.node",
   }
 end, {
   -- Memoize by bufnr and lang together.
@@ -76,7 +76,7 @@ local function get_indent(lnum)
 
   -- to get correct indentation when we land on an empty line (for instance by typing `o`), we try
   -- to use indentation of previous nonblank line, this solves the issue also for languages that
-  -- do not use @branch after blocks (e.g. Python)
+  -- do not use @dedent after blocks (e.g. Python)
   if not node then
     local prevnonblank = vim.fn.prevnonblank(lnum)
     if prevnonblank ~= lnum then
@@ -88,7 +88,7 @@ local function get_indent(lnum)
       end
 
       -- nodes can be marked @return to prevent using them
-      if prev_node and not q.returns[node_fmt(prev_node)] then
+      if prev_node and not q.return_[node_fmt(prev_node)] then
         local row = prev_node:start()
         local end_row = prev_node:end_()
 
@@ -108,12 +108,12 @@ local function get_indent(lnum)
   if not node then
     local wrapper = root:descendant_for_range(lnum - 1, 0, lnum - 1, -1)
     node = wrapper:child(0) or wrapper
-    if q.indents[node_fmt(wrapper)] ~= nil and wrapper ~= root then
+    if q.indent[node_fmt(wrapper)] ~= nil and wrapper ~= root then
       indent = indent_size
     end
   end
 
-  while node and q.branches[node_fmt(node)] do
+  while node and q.dedent[node_fmt(node)] do
     node = node:parent()
   end
 
@@ -122,13 +122,13 @@ local function get_indent(lnum)
 
   while node do
     -- do not indent if we are inside an @ignore block
-    if q.ignores[node_fmt(node)] and node:start() < lnum - 1 and node:end_() > lnum - 1 then
+    if q.ignore[node_fmt(node)] and node:start() < lnum - 1 and node:end_() > lnum - 1 then
       return -1
     end
 
     -- do not indent the starting node, do not add multiple indent levels on single line
     local row = node:start()
-    if not first and q.indents[node_fmt(node)] and prev_row ~= row then
+    if not first and q.indent[node_fmt(node)] and prev_row ~= row then
       indent = indent + indent_size
       prev_row = row
     end
@@ -295,18 +295,18 @@ local function dev_indent(lnum)
   end
 
   -- indent when there is any @indent node in the nodes on prev line
-  local is_indent = tbl_any(prev_line_nodes, in_query(q.indents))
-  -- branch  when any node on current line is a branch
-  local is_branch = tbl_any(curr_line_nodes, in_query(q.branches))
+  local is_indent = tbl_any(prev_line_nodes, in_query(q.indent))
+  -- dedent  when any node on current line is a dedent
+  local is_dedent = tbl_any(curr_line_nodes, in_query(q.dedent))
   -- ignore by checking nodes on previous line  (the ones that could cause indent)
-  local is_ignore = tbl_any(prev_line_nodes, in_query(q.ignores))
+  local is_ignore = tbl_any(prev_line_nodes, in_query(q.ignore))
 
   local prev_indent = prev_lnum and vim.fn.indent(prev_lnum) or 0
   local indent
 
   if is_ignore then
     indent = -1
-  elseif is_branch then
+  elseif is_dedent then
     indent = prev_indent
   elseif is_indent then
     indent = prev_indent + indent_size
@@ -325,7 +325,7 @@ local function dev_indent(lnum)
   dprint('curr:', fmt_nodes_path(curr_line_nodes))
 
   dprint(string.format('ln=%d prv=%d ind=%d isind=%s isbr=%s isign=%s w=%s',
-    lnum, prev_indent, indent, is_indent, is_branch, is_ignore, wrapper:type()
+    lnum, prev_indent, indent, is_indent, is_dedent, is_ignore, wrapper:type()
   ))
 
   M.full_calls = M.full_calls + 1

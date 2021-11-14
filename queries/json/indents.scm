@@ -6,4 +6,4 @@
 [
   "}"
   "]"
-] @branch
+] @dedent

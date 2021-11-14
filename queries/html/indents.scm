@@ -6,6 +6,6 @@
   (end_tag)
   ">"
   "/>"
-] @branch
+] @dedent
 
 (comment) @ignore

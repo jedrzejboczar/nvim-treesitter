@@ -19,6 +19,6 @@
   ")"
   "{"
   "}"
-] @branch
+] @dedent
 
 (comment) @ignore

@@ -5,4 +5,4 @@
 [
   "["
   "]"
-] @branch
+] @dedent

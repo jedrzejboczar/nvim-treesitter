@@ -28,7 +28,7 @@
   "then"
   (else)
   (elseif)
-] @branch
+] @dedent
 
 [
   (comment)

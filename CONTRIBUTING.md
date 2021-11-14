@@ -268,7 +268,7 @@ the node describing the language and `@content` to describe the injection region
 
 ```
 @indent ; Indent when matching this node
-@branch ; Dedent when matching this node
+@dedent ; Dedent when matching this node
 @return ; Dedent when matching this node
 @ignore ; Skip this node when calculating the indentation level
 ```

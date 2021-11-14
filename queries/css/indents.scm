@@ -5,6 +5,6 @@
 
 [
   "}"
-] @branch
+] @dedent
 
 (comment) @ignore

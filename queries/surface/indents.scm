@@ -1,4 +1,4 @@
-; Surface indents like HTML, with the addition of blocks 
+; Surface indents like HTML, with the addition of blocks
 [
   (component)
   (tag)
@@ -11,4 +11,4 @@
   (end_component)
   (end_block)
   (subblock)
-] @branch
+] @dedent

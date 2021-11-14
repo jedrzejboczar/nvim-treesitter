@@ -13,6 +13,6 @@
   (await_end_expr)
   ">"
   "/>"
-] @branch
+] @dedent
 
 (comment) @ignore

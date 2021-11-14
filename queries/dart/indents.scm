@@ -19,9 +19,9 @@
   "}"
   "["
   "]"
-] @branch
+] @dedent
 
 ; this one is for dedenting the else block
-(if_statement (block) @branch)
+(if_statement (block) @dedent)
 
 (comment) @ignore

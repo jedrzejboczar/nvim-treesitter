@@ -13,7 +13,7 @@
   "}"
   "["
   "]"
-] @branch
+] @dedent
 
 [
   (block_comment)

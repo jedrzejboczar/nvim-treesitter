@@ -11,6 +11,6 @@
  (else_if_clause)
  (else_clause)
  "end"
-] @branch
+] @dedent
 
 (comment) @ignore

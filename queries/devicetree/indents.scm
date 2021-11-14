@@ -7,7 +7,7 @@
 [
   "}"
   ">"
-] @branch
+] @dedent
 
 [
   (comment)

@@ -6,5 +6,5 @@
 [
   "]"
   ")"
-] @branch
+] @dedent
 

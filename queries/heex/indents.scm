@@ -8,4 +8,4 @@
 [
   (end_tag)
   (end_component)
-] @branch
+] @dedent

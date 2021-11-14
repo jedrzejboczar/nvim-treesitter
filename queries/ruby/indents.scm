@@ -24,6 +24,6 @@
   (when)
   (elsif)
   "end"
-] @branch
+] @dedent
 
 (comment) @ignore

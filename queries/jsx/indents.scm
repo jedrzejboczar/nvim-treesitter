@@ -9,4 +9,4 @@
 [
   (jsx_closing_element)
   ">"
-] @branch
+] @dedent

@@ -14,4 +14,4 @@
   "]"
   ")"
   (triples_same_subject)
-] @branch
+] @dedent

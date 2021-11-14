@@ -12,7 +12,7 @@
   "]"
   "{"
   "}"
-] @branch
+] @dedent
 
 [
   (line_comment)

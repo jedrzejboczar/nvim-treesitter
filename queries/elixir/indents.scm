@@ -15,4 +15,4 @@
   (else_block)
   (rescue_block)
   (catch_block)
-] @branch
+] @dedent

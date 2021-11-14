@@ -32,7 +32,7 @@
   (elseif_clause)
   (catch_clause)
   (finally_clause)
-] @branch
+] @dedent
 
 [
   (comment)

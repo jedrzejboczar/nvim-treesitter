@@ -24,4 +24,4 @@
   (end_type_statement)
   (end_enum_statement)
   (end_where_statement)
-] @branch
+] @dedent

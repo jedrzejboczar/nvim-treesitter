@@ -24,7 +24,7 @@
   "}"
   "["
   "]"
-] @branch
+] @dedent
 
 [
   (comment)

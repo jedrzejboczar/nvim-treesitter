@@ -10,4 +10,4 @@
   (object_end)
   (block_end)
   (tuple_end)
-] @branch
+] @dedent
