@@ -217,6 +217,45 @@ local function dprint(...)
   end
 end
 
+function M.dbg_queries()
+  local lnum = vim.fn.line('.')
+
+  local parser = parsers.get_parser()
+  if not parser or not lnum then
+    return -1
+  end
+
+  local root, _, lang_tree = tsutils.get_root_for_position(lnum, 0, parser)
+
+  local queries = get_indents(vim.api.nvim_get_current_buf(), root, lang_tree:lang())
+
+  local entries = {}
+  for qtype, q in pairs(queries) do
+    for id, node in pairs(q) do
+      table.insert(entries, {
+        node=node,
+        type=qtype,
+      })
+    end
+  end
+
+  table.sort(entries, function(a, b)
+    local row_a, _ = a.node:start()
+    local row_b, _ = b.node:start()
+    return row_a < row_b
+  end)
+
+  for _, e in ipairs(entries) do
+    local start_row, start_col = e.node:start()
+    local end_row, end_col = e.node:end_()
+    print(string.format('  @%-15s %-25s [%d, %d] - [%d, %d]',
+      e.type, e.node:type(), start_row, start_col, end_row, end_col
+    ))
+  end
+
+  return queries
+end
+
 local function dev_indent(lnum)
   dprint('dev_indent('..tostring(lnum)..')')
   M.calls = M.calls + 1
