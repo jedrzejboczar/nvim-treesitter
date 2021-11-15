@@ -8,7 +8,6 @@
   (enumerator_list)
   (struct_specifier)
   (compound_literal_expression)
-  ; dev
   (parameter_list)
   (if_statement)
   (while_statement)
@@ -17,16 +16,20 @@
 
 
 [
-  "#define"
-  "#ifdef"
-  "#if"
-  "#endif"
   "}"
   ")"
   "]"
-  (statement_identifier) ; goto labels
   "else"
 ] @dedent
+
+[
+  "#define"
+  "#ifdef"
+  "#if"
+  "#else"
+  "#endif"
+  (statement_identifier) ; goto labels
+] @zero
 
 ; dedent only braces in functions, if statements, structs, etc.,
 ; but in things like nested array initializers

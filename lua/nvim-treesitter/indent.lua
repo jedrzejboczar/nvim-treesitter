@@ -327,12 +327,15 @@ local function dev_indent(lnum)
   local is_dedent = tbl_any(curr_line_nodes, is_kind("dedent"))
   -- ignore by checking nodes on previous line  (the ones that could cause indent)
   local is_ignore = tbl_any(prev_line_nodes, is_kind("ignore"))
+  local is_zero = tbl_any(curr_line_nodes, is_kind("zero"))
 
   local prev_indent = prev_lnum and vim.fn.indent(prev_lnum) or 0
   local indent
 
   if is_ignore then
     indent = -1
+  elseif is_zero then
+    return 0
   elseif is_dedent then
     indent = prev_indent
   elseif is_indent then
@@ -351,8 +354,8 @@ local function dev_indent(lnum)
   dprint('prev:', fmt_nodes_path(prev_line_nodes))
   dprint('curr:', fmt_nodes_path(curr_line_nodes))
 
-  dprint(string.format('ln=%d prv=%d ind=%d isind=%s isbr=%s isign=%s w=%s',
-    lnum, prev_indent, indent, is_indent, is_dedent, is_ignore, wrapper:type()
+  dprint(string.format('ln=%d prv=%d ind=%d isind=%s isbr=%s isign=%s iszer=%s w=%s',
+    lnum, prev_indent, indent, is_indent, is_dedent, is_ignore, is_zero, wrapper:type()
   ))
 
   M.full_calls = M.full_calls + 1

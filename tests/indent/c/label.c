@@ -5,3 +5,12 @@ int foo(int x)
 error:
     return 1;
 }
+
+void loop(int x)
+{
+loop:
+    x++;
+    if (x != 0) {
+        goto loop;
+    }
+}
