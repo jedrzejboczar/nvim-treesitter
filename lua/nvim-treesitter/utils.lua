@@ -118,13 +118,13 @@ end
 
 -- Gets a property at path
 -- @param tbl the table to access
--- @param path the '.' separated path
+-- @param path list of path segments or a '.' separated string
 -- @returns the value at path or nil
 function M.get_at_path(tbl, path)
-  if path == "" then
+  local segments = type(path) == "string" and vim.split(path, ".", true) or path
+  if #segments == 0 or segments[1] == "" then
     return tbl
   end
-  local segments = vim.split(path, ".", true)
   local result = tbl
 
   for _, segment in ipairs(segments) do
@@ -134,6 +134,27 @@ function M.get_at_path(tbl, path)
   end
 
   return result
+end
+
+-- Sets a property at path
+-- @param tbl the table to access
+-- @param path list of path segments or a '.' separated string
+-- @param value the value to be set
+function M.set_at_path(tbl, path, value)
+  local segments = type(path) == "string" and vim.split(path, ".", true) or path
+  if #segments == 0 or segments[1] == "" then
+    return
+  end
+
+  for i = 1, (#segments - 1) do
+    if tbl[segments[i]] == nil then
+      tbl[segments[i]] = {}
+    end
+
+    tbl = tbl[segments[i]]
+  end
+
+  tbl[segments[#segments]] = value
 end
 
 -- Prints a warning message

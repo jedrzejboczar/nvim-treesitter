@@ -138,20 +138,6 @@ function M.iter_prepared_matches(query, qnode, bufnr, start_row, end_row)
 
     return t
   end
-  -- Given a path (i.e. a List(String)) this functions inserts value at path
-  local function insert_to_path(object, path, value)
-    local curr_obj = object
-
-    for index = 1, (#path - 1) do
-      if curr_obj[path[index]] == nil then
-        curr_obj[path[index]] = {}
-      end
-
-      curr_obj = curr_obj[path[index]]
-    end
-
-    curr_obj[path[#path]] = value
-  end
 
   local matches = query:iter_matches(qnode, bufnr, start_row, end_row)
 
@@ -165,7 +151,7 @@ function M.iter_prepared_matches(query, qnode, bufnr, start_row, end_row)
         local name = query.captures[id] -- name of the capture in the query
         if name ~= nil then
           local path = split(name .. ".node")
-          insert_to_path(prepared_match, path, node)
+          utils.set_at_path(prepared_match, path, node)
         end
       end
 
@@ -175,10 +161,10 @@ function M.iter_prepared_matches(query, qnode, bufnr, start_row, end_row)
         for _, pred in pairs(preds) do
           -- functions
           if pred[1] == "set!" and type(pred[2]) == "string" then
-            insert_to_path(prepared_match, split(pred[2]), pred[3])
+            utils.set_at_path(prepared_match, split(pred[2]), pred[3])
           end
           if pred[1] == "make-range!" and type(pred[2]) == "string" and #pred == 4 then
-            insert_to_path(
+            utils.set_at_path(
               prepared_match,
               split(pred[2] .. ".node"),
               tsrange.TSRange.from_nodes(bufnr, match[pred[3]], match[pred[4]])
