@@ -33,7 +33,7 @@
 
 ; dedent only braces in functions, if statements, structs, etc.,
 ; but in things like nested array initializers
-(compound_statement "{" @dedent)
+; (compound_statement "{" @dedent)
 (field_declaration_list "{" @dedent)
 
 [

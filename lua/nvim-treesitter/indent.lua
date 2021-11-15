@@ -26,6 +26,40 @@ local function get_node_at_line(root, lnum)
   end
 end
 
+-- Returns all parents on the same line and the first parent before
+local function get_parents_at_line(node)
+  local row = node and node:start()
+  local nodes = {}
+  while node and node:start() == row do
+    table.insert(nodes, node)
+    node = node:parent()
+  end
+  return nodes, node
+end
+
+local function get_children_at_line(parent, lnum, _nodes)
+  local row = lnum - 1
+  local nodes = _nodes or {}
+
+  for node in parent:iter_children() do
+    local start_row, _, end_row, _ = node:range()
+    if start_row == row then
+      table.insert(nodes, node)
+    end
+
+    if node:child_count() > 0 and start_row <= row and row <= end_row then
+      get_children_at_line(node, lnum, nodes)
+    end
+  end
+
+  return nodes
+end
+
+local function get_nodes_at_line(node)
+  local _, parent = get_parents_at_line(node)
+  return parent and get_children_at_line(parent, node:start() + 1) or {}
+end
+
 local function node_fmt(node)
   if not node then
     return nil
@@ -282,6 +316,19 @@ local function dev_indent(lnum)
 
   local lookup = get_lookup(vim.api.nvim_get_current_buf(), root, lang_tree:lang())
 
+  local is_kind = function(kind)
+    return function(node)
+      return lookup:is_kind(node, kind)
+    end
+  end
+
+  local fmt_short = function(node)
+    return string.format('%s(%d)', node:type(), node:start())
+  end
+  local fmt_nodes_path = function(nodes)
+    return table.concat(vim.tbl_map(fmt_short, nodes), '>')
+  end
+
   -- lnum = vim.fn.prevnonblank(lnum)
   if lnum == 0 then  -- first line
     dprint('lnum 0')
@@ -298,28 +345,70 @@ local function dev_indent(lnum)
     return 0
   end
 
-  local curr_line_nodes = {}  -- nodes on lnum starting from wrapper
-  local prev_line_nodes = {}  -- nodes on the line of first wrapper parent that is before lnum
+  -- local curr_line_nodes = {}  -- nodes on lnum starting from wrapper
+  -- local prev_line_nodes = {}  -- nodes on the line of first wrapper parent that is before lnum
+
+  -- print('nodes on line', fmt_nodes_path(get_nodes_at_line(wrapper)))
+  -- print('nodes on line', fmt_nodes_path(get_children_at_line(root, lnum)))
+
+  local collect_on_line = function(node)
+    local row = node and node:start()
+    local nodes = {}
+    while node and node:start() == row do
+      table.insert(nodes, node)
+      node = node:parent()
+    end
+    return nodes, node
+  end
+
+  local collect_all_on_line = function(node)
+    -- move to the first parent before this line
+    local row = node and node:start()
+    local parent = node
+    while parent and parent:start() == row do
+      parent = parent:parent()
+    end
+    -- collect all childern on original line
+    local nodes = {}
+    for node in parent:iter_children() do
+
+    end
+
+    return nodes, node
+  end
 
   -- collect all nodes on current line starting from wrapper
-  local node = wrapper
-  while node and node:start() == lnum - 1 do
-    table.insert(curr_line_nodes, node)
-    node = node:parent()
-  end
+  local curr_line_nodes, node = collect_on_line(wrapper)
 
-  -- now node is before current line, so collect all nodes no that line
-  local prev_lnum = node and node:start() + 1
-  while node and node:start() == prev_lnum - 1 do
-    table.insert(prev_line_nodes, node)
-    node = node:parent()
-  end
+  dprint('curr:', fmt_nodes_path(curr_line_nodes))
 
-  local is_kind = function(kind)
-    return function(node)
-      return lookup:is_kind(node, kind)
-    end
+  -- TODO: we should have a way to mark captures as ignored when searching for previous
+  -- indent or "stopping" the search; is it just the same concept as with @*.line captures?
+  local prev_line_nodes, _
+  while node and tbl_any(get_nodes_at_line(node), is_kind("zero")) do
+    dprint('@zero prev:', fmt_nodes_path(get_nodes_at_line(node)))
+    _, node = get_parents_at_line(node)
   end
+  prev_line_nodes, _ = get_parents_at_line(node)
+
+  dprint('prev:', fmt_nodes_path(prev_line_nodes))
+
+  -- -- now node is at previous line but we need to ignore lines with @zero
+  -- local prev_lnum = node and node:start() + 1
+  -- while node and lookup:is_kind(node, "zero") do
+  --   -- move to previous line
+  --   while node and node:start() == prev_lnum - 1 do
+  --     node = node:parent()
+  --   end
+  --   prev_lnum = node and node:start() + 1
+  -- end
+
+  -- -- now node is before current line, so collect all nodes no that line
+  -- local prev_lnum = node and node:start() + 1
+  -- while node and node:start() == prev_lnum - 1 do
+  --   table.insert(prev_line_nodes, node)
+  --   node = node:parent()
+  -- end
 
   -- indent when there is any @indent node in the nodes on prev line
   local is_indent = tbl_any(prev_line_nodes, is_kind("indent"))
@@ -329,6 +418,7 @@ local function dev_indent(lnum)
   local is_ignore = tbl_any(prev_line_nodes, is_kind("ignore"))
   local is_zero = tbl_any(curr_line_nodes, is_kind("zero"))
 
+  local prev_lnum = prev_line_nodes[1] and prev_line_nodes[1]:start() + 1
   local prev_indent = prev_lnum and vim.fn.indent(prev_lnum) or 0
   local indent
 
@@ -343,16 +433,6 @@ local function dev_indent(lnum)
   else
     indent = -1
   end
-
-  local fmt_short = function(node)
-    return string.format('%s(%d)', node:type(), node:start())
-  end
-  local fmt_nodes_path = function(nodes)
-    return table.concat(vim.tbl_map(fmt_short, nodes), '>')
-  end
-
-  dprint('prev:', fmt_nodes_path(prev_line_nodes))
-  dprint('curr:', fmt_nodes_path(curr_line_nodes))
 
   dprint(string.format('ln=%d prv=%d ind=%d isind=%s isbr=%s isign=%s iszer=%s w=%s',
     lnum, prev_indent, indent, is_indent, is_dedent, is_ignore, is_zero, wrapper:type()

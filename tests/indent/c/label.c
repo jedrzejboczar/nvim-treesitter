@@ -8,9 +8,11 @@ error:
 
 void loop(int x)
 {
+    {
 loop:
-    x++;
-    if (x != 0) {
-        goto loop;
+        x++;
+        if (x != 0) {
+            goto loop;
+        }
     }
 }
