@@ -1,8 +1,16 @@
 local parsers = require "nvim-treesitter.parsers"
 local queries = require "nvim-treesitter.query"
 local tsutils = require "nvim-treesitter.ts_utils"
+local locals = require "nvim-treesitter.locals"
 
 local M = {}
+
+M.debug_print = vim.fn.eval('$INDENTS_DBG') == '1'
+local function dprint(...)
+  if M.debug_print then
+    print(...)
+  end
+end
 
 -- TODO(kiyan): move this in tsutils and document it
 local function get_node_at_line(root, lnum)
@@ -25,22 +33,45 @@ local function node_fmt(node)
   return node:id()
 end
 
-local get_indents = tsutils.memoize_by_buf_tick(function(bufnr, root, lang)
-  local get_map = function(capture)
-    local matches = queries.get_capture_matches(bufnr, capture, "indents", root, lang) or {}
-    local map = {}
-    for _, node in ipairs(matches) do
-      map[node:id()] = node
-    end
-    return map
+local Lookup = {}
+
+function Lookup:new(bufnr, root, lang)
+  local lookup = {}
+
+  for match in queries.iter_group_results(bufnr, "indents", root, lang) do
+    -- TODO: extract recurse_local_nodes to utils
+    locals.recurse_local_nodes(match, function(def, node, kind)
+      local id = def.node:id()
+      -- FIXME: why when running with -u minimal_init.lua --noplugins it is overwriting entries with same data?
+      -- assert(not lookup[id])
+      -- if lookup[id] then
+      --   print(string.format('overwriting node=%s kind=%s, previously node=%s kind=%s',
+      --     def.node:type(), kind, lookup[id].node:type(), lookup[id].kind
+      --   ))
+      -- end
+      lookup[id] = vim.tbl_extend("keep", { kind = kind }, def)
+    end)
   end
 
-  return {
-    indent = get_map "@indent.node",
-    dedent = get_map "@dedent.node",
-    return_ = get_map "@return.node",
-    ignore = get_map "@ignore.node",
-  }
+  dprint(vim.inspect(lookup))
+  return setmetatable(lookup, { __index = Lookup })
+end
+
+function Lookup:is_kind(node, kind)
+  return node and self[node:id()] and self[node:id()].kind == kind
+end
+
+
+local get_lookup = tsutils.memoize_by_buf_tick(function(bufnr, root, lang)
+  -- TODO: additinal query ideas:
+  -- * -start/-all versions for indent/dedent (currently dedent is -start and indent is -all)
+  -- * indent-all that will be applied even when there is another indent on the same line
+  -- * fixedN (or with some set! directive) to have a fixed indent value (e.g. for assembly?)
+  --   ([
+  --     ...
+  --   ] @fixed (#set! fixed.value 1))
+  -- * align (with optional set! offset) for aligning Python parameters to (
+  return Lookup:new(bufnr, root, lang)
 end, {
   -- Memoize by bufnr and lang together.
   key = function(bufnr, _, lang)
@@ -68,7 +99,7 @@ local function get_indent(lnum)
     return 0
   end
 
-  local q = get_indents(vim.api.nvim_get_current_buf(), root, lang_tree:lang())
+  local lut = get_lookup(vim.api.nvim_get_current_buf(), root, lang_tree:lang())
   local node = get_node_at_line(root, lnum - 1)
 
   local indent = 0
@@ -88,7 +119,7 @@ local function get_indent(lnum)
       end
 
       -- nodes can be marked @return to prevent using them
-      if prev_node and not q.return_[node_fmt(prev_node)] then
+      if prev_node and not lut:is_kind(prev_node, "return") then
         local row = prev_node:start()
         local end_row = prev_node:end_()
 
@@ -108,12 +139,12 @@ local function get_indent(lnum)
   if not node then
     local wrapper = root:descendant_for_range(lnum - 1, 0, lnum - 1, -1)
     node = wrapper:child(0) or wrapper
-    if q.indent[node_fmt(wrapper)] ~= nil and wrapper ~= root then
+    if lut:is_kind(wrapper, "indent") and wrapper ~= root then
       indent = indent_size
     end
   end
 
-  while node and q.dedent[node_fmt(node)] do
+  while node and lut:is_kind(node, "dedent") do
     node = node:parent()
   end
 
@@ -122,13 +153,13 @@ local function get_indent(lnum)
 
   while node do
     -- do not indent if we are inside an @ignore block
-    if q.ignore[node_fmt(node)] and node:start() < lnum - 1 and node:end_() > lnum - 1 then
+    if lut:is_kind(node, "ignore") and node:start() < lnum - 1 and node:end_() > lnum - 1 then
       return -1
     end
 
     -- do not indent the starting node, do not add multiple indent levels on single line
     local row = node:start()
-    if not first and q.indent[node_fmt(node)] and prev_row ~= row then
+    if not first and lut:is_kind(node, "indent") and prev_row ~= row then
       indent = indent + indent_size
       prev_row = row
     end
@@ -191,13 +222,6 @@ local function tbl_any(tbl, cond)
   return false
 end
 
-M.debug_print = vim.fn.eval('$INDENTS_DBG') == '1'
-local function dprint(...)
-  if M.debug_print then
-    print(...)
-  end
-end
-
 function M.dbg_queries()
   local lnum = vim.fn.line('.')
 
@@ -208,7 +232,7 @@ function M.dbg_queries()
 
   local root, _, lang_tree = tsutils.get_root_for_position(lnum, 0, parser)
 
-  local queries = get_indents(vim.api.nvim_get_current_buf(), root, lang_tree:lang())
+  local queries = get_lookup(vim.api.nvim_get_current_buf(), root, lang_tree:lang())
 
   local entries = {}
   for qtype, q in pairs(queries) do
@@ -244,6 +268,7 @@ local function dev_indent(lnum)
 
   local parser = parsers.get_parser()
   if not parser or not lnum then
+    print('no parser or lnum, parser =', parser, 'lnum = ', lnum)
     return -1
   end
 
@@ -255,7 +280,7 @@ local function dev_indent(lnum)
     return -1
   end
 
-  local q = get_indents(vim.api.nvim_get_current_buf(), root, lang_tree:lang())
+  local lookup = get_lookup(vim.api.nvim_get_current_buf(), root, lang_tree:lang())
 
   -- lnum = vim.fn.prevnonblank(lnum)
   if lnum == 0 then  -- first line
@@ -290,16 +315,18 @@ local function dev_indent(lnum)
     node = node:parent()
   end
 
-  local in_query = function(query)
-    return function(node) return query[node_fmt(node)] end
+  local is_kind = function(kind)
+    return function(node)
+      return lookup:is_kind(node, kind)
+    end
   end
 
   -- indent when there is any @indent node in the nodes on prev line
-  local is_indent = tbl_any(prev_line_nodes, in_query(q.indent))
+  local is_indent = tbl_any(prev_line_nodes, is_kind("indent"))
   -- dedent  when any node on current line is a dedent
-  local is_dedent = tbl_any(curr_line_nodes, in_query(q.dedent))
+  local is_dedent = tbl_any(curr_line_nodes, is_kind("dedent"))
   -- ignore by checking nodes on previous line  (the ones that could cause indent)
-  local is_ignore = tbl_any(prev_line_nodes, in_query(q.ignore))
+  local is_ignore = tbl_any(prev_line_nodes, is_kind("ignore"))
 
   local prev_indent = prev_lnum and vim.fn.indent(prev_lnum) or 0
   local indent
