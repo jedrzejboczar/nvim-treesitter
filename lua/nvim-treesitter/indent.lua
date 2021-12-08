@@ -37,6 +37,26 @@ local function get_parents_at_line(node)
   return nodes, node
 end
 
+-- -- Collects nodes up the tree starting from `node` until `cond` holds.
+-- -- Returns collected nodes (including `node`) and the first node for which `cond` failed.
+-- local function collect_up_until(node, cond)
+--   cond = cond or function(node) return true end
+--   local nodes = {}
+--   while node and cond(node) do
+--     table.insert(nodes, node)
+--     node = node:parent()
+--   end
+--   return nodes, node
+-- end
+--
+-- -- Returns a callable that tests if a node is on the same line as given node
+-- local function same_line_as(node)
+--   local row = node and node:start()
+--   return function(node)
+--     return node:start() == row
+--   end
+-- end
+
 local function get_children_at_line(parent, lnum, _nodes)
   local row = lnum - 1
   local nodes = _nodes or {}
@@ -53,6 +73,41 @@ local function get_children_at_line(parent, lnum, _nodes)
   end
 
   return nodes
+end
+
+local function _get_siblings_at_line(node, dir, nodes)
+  assert(dir == "prev" or dir == "next", dir)
+  nodes = nodes or {}
+  local row = node:start()
+  local get_sibling = function(node)
+    return dir == "prev" and node:prev_sibling() or node:next_sibling()
+  end
+  local insert = function(node)
+    return dir == "prev" and node:prev_sibling() or node:next_sibling()
+  end
+
+  while node and node:start() == row do
+    table.insert(nodes, node)
+    node = get_sibling(node)
+  end
+
+  return nodes, node
+end
+
+local function get_siblings_at_line(node, dir)
+  dir = dir or "all"
+  assert(vim.tbl_contains({"prev", "next", "all"}, dir), dir)
+
+  local nodes = {}
+  if dir ~= "next" then
+    _get_siblings_at_line(node, "prev", nodes)
+  end
+  if dir ~= "right" then
+    left = _get_siblings_at_line(node, true)
+  end
+
+
+  return nodes, node
 end
 
 local function get_nodes_at_line(node)

@@ -31,6 +31,14 @@
   (statement_identifier) ; goto labels
 ] @zero
 
+
+(
+  (binary_expression
+    (identifier) @test.i
+    (number_literal) @test.n
+  ) (#set! test.i.data 13)
+)
+
 ; dedent only braces in functions, if statements, structs, etc.,
 ; but in things like nested array initializers
 ; (compound_statement "{" @dedent)
