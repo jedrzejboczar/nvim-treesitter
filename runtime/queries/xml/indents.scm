@@ -1,4 +1,7 @@
-(element) @indent.begin
+[
+ (element)
+ (prolog)
+ ] @indent.begin
 
 [
   (Attribute)
